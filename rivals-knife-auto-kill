@@ -1,0 +1,63 @@
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
+local oldGui = PlayerGui:FindFirstChild("SeguirGui")
+if oldGui then oldGui:Destroy() end
+local screenGui = Instance.new("ScreenGui", PlayerGui)
+screenGui.Name = "SeguirGui"
+screenGui.ResetOnSpawn = false
+local button = Instance.new("TextButton")
+button.Size = UDim2.new(0, 160, 0, 50)
+button.Position = UDim2.new(0, 20, 0.8, 0)
+button.Text = "Auto Kill User (Se necesita Cuchillo)"
+button.BackgroundColor3 = Color3.fromRGB(0, 170, 255)
+button.TextColor3 = Color3.new(1, 1, 1)
+button.Font = Enum.Font.SourceSansBold
+button.TextSize = 20
+button.Parent = screenGui
+button.MouseButton1Click:Connect(function()
+	local RunService = game:GetService("RunService")
+	noclip = true
+	RunService.Stepped:Connect(function()
+		if noclip then
+			for _, part in pairs(LocalPlayer.Character:GetDescendants()) do
+				if part:IsA("BasePart") then
+					part.CanCollide = false
+				end
+			end
+		end
+	end)
+	local target = nil
+	for _, player in pairs(Players:GetPlayers()) do
+		if player ~= LocalPlayer then
+			target = player
+			break
+		end
+	end
+	if not target or not target.Character or not target.Character:FindFirstChild("HumanoidRootPart") then
+		warn("No se detecto usuario")
+		return
+	end
+	local hrp = LocalPlayer.Character:WaitForChild("HumanoidRootPart")
+	local targetHRP = target.Character:WaitForChild("HumanoidRootPart")
+	hrp.CFrame = CFrame.new(
+		targetHRP.Position - targetHRP.CFrame.LookVector * 5,
+		targetHRP.Position
+	)
+	local following = true
+	RunService.RenderStepped:Connect(function()
+		if following and target.Character and target.Character:FindFirstChild("HumanoidRootPart") then
+			local tHRP = target.Character.HumanoidRootPart
+			local behindPos = tHRP.Position - tHRP.CFrame.LookVector * 5
+			hrp.CFrame = CFrame.new(behindPos, tHRP.Position)
+		else
+			following = false
+		end
+	end)
+	local humanoid = target.Character:FindFirstChildOfClass("Humanoid")
+	if humanoid then
+		humanoid.Died:Connect(function()
+			following = false
+		end)
+	end
+end)
