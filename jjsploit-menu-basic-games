@@ -112,6 +112,7 @@ local function createMenu()
 		{"Blade Ball", "https://raw.githubusercontent.com/Fsploit/Frostware/refs/heads/main/F-R-O-S-T-W-A-R-E%20BY%20FSPLOIT-BLADE%20BALL.lua"},
 		{"Los Campos", "https://raw.githubusercontent.com/Mautiku/ehh/main/strong%20guest.lua.txt"},
 		{"Rivals", "https://raw.githubusercontent.com/tbao143/thaibao/main/TbaoHubRivals"},
+		{"Rivals Auto Kill", "https://raw.githubusercontent.com/eibanmembrado/-hh/refs/heads/main/rivals-knife-auto-kill"},
 		{"Infinite Yield", "https://cdn.wearedevs.net/scripts/Infinite%20Yield.txt"},
 		{"Dex Explorer", "https://cdn.wearedevs.net/scripts/Dex%20Explorer.txt"}
 	}
