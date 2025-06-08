@@ -1,7 +1,7 @@
 local player = game.Players.LocalPlayer
 local uis = game:GetService("UserInputService")
 local gui = Instance.new("ScreenGui", player:WaitForChild("PlayerGui"))
-gui.Name = "JJExploit"
+gui.Name = "LuaExecutor"
 gui.ResetOnSpawn = false
 
 local function roundify(obj, radius)
