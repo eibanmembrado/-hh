@@ -1,4 +1,4 @@
-local Players = game:GetService("Players")
+local Players = game:GetService("Players") 
 local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
@@ -23,8 +23,8 @@ helpText.TextColor3 = Color3.fromRGB(0, 255, 0)
 helpText.Font = Enum.Font.SourceSansBold
 helpText.TextSize = 35
 helpText.TextWrapped = true
-helpText.Text = [[Gracias Por Usar El Script, Presiona Z para Teletransportarte a la Espalda del Enemigo y con el Cuchillo le matas, o si no usa armas normales, solo funciona en Rivals y para saber a quien le vas a usar es al mas cercano, se marcara de color rojo y si es verde es porque no tiene seleccionada a ese, ten cuidado al usarlo contra un compañero, si te equivocaste usa de nuevo Z, si esta en amarillo es porque lo estas usando contra el y si esta negro es porque esta muerto, usalo con cuidado.
-Presione X para mostrar o ocultar esta ayuda o presiona K para Apagar el Script]]
+helpText.Text = [[Gracias Por Usar El Script, Presiona Z para Teletransportarte a la Espalda del Enemigo y con el Cuchillo le matas, o si no usa armas normales, solo funciona en Rivals y para saber a quien le vas a usar es al más cercano, se marcará de color rojo y si es verde es porque no tiene seleccionada a ese, ten cuidado al usarlo contra un compañero, si te equivocaste usa de nuevo Z, si está en amarillo es porque lo estás usando contra él y si está negro es porque está muerto, úsalo con cuidado.
+Presione X para mostrar o ocultar esta ayuda, presiona K para Apagar el Script, o presiona E para activar o desactivar el Aimbot, y a la hora de disparar dale clicks!]]
 helpText.TextTransparency = 0
 helpText.Visible = true
 helpText.Parent = screenGui
@@ -41,38 +41,23 @@ local steppedConn = nil
 
 local highlights = {}
 local closestPlayer = nil
-
-local originalCameraSubject = nil
-local originalCameraType = nil
+local fixedTarget = nil
 
 local scriptEnabled = true
+local cameraTracking = false
+local cameraConn = nil
 
 local function stopFollowing()
 	following = false
 	noclip = false
-	if followConn then
-		followConn:Disconnect()
-		followConn = nil
-	end
-	if steppedConn then
-		steppedConn:Disconnect()
-		steppedConn = nil
-	end
-	if originalCameraSubject then
-		Camera.CameraSubject = originalCameraSubject
-		Camera.CameraType = originalCameraType
-		originalCameraSubject = nil
-		originalCameraType = nil
-	end
+	if followConn then followConn:Disconnect() followConn = nil end
+	if steppedConn then steppedConn:Disconnect() steppedConn = nil end
 end
 
 local function isPlayerAlive(player)
 	if not player.Character then return false end
 	local humanoid = player.Character:FindFirstChildOfClass("Humanoid")
-	if humanoid and humanoid.Health > 0 then
-		return true
-	end
-	return false
+	return humanoid and humanoid.Health > 0
 end
 
 local function updateHighlightColor(player)
@@ -82,20 +67,22 @@ local function updateHighlightColor(player)
 		if following and player == closestPlayer then
 			highlight.FillColor = Color3.fromRGB(255, 255, 0)
 			highlight.OutlineColor = Color3.fromRGB(255, 255, 0)
+		elseif cameraTracking and player == closestPlayer then
+			highlight.FillColor = Color3.fromRGB(255, 165, 0)
+			highlight.OutlineColor = Color3.fromRGB(255, 165, 0)
 		else
 			highlight.FillColor = Color3.fromRGB(0, 255, 0)
 			highlight.OutlineColor = Color3.fromRGB(0, 255, 0)
 		end
 	else
-		highlight.FillColor = Color3.new(0,0,0)
-		highlight.OutlineColor = Color3.new(0,0,0)
+		highlight.FillColor = Color3.new(0, 0, 0)
+		highlight.OutlineColor = Color3.new(0, 0, 0)
 	end
 end
 
 local function createHighlight(player)
 	if highlights[player] then
 		highlights[player]:Destroy()
-		highlights[player] = nil
 	end
 	if player.Character then
 		local highlight = Instance.new("Highlight")
@@ -109,9 +96,8 @@ local function createHighlight(player)
 		if humanoid then
 			humanoid.Died:Connect(function()
 				updateHighlightColor(player)
-				if player == closestPlayer and following then
-					stopFollowing()
-				end
+				if player == closestPlayer and following then stopFollowing() end
+				if fixedTarget == player then fixedTarget = nil end
 			end)
 		end
 	end
@@ -119,19 +105,27 @@ end
 
 local function updateHighlights()
 	if not scriptEnabled then return end
-	local sortedEnemies = {}
 	if not LocalPlayer.Character or not LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then return end
 	local myPos = LocalPlayer.Character.HumanoidRootPart.Position
+	local sortedEnemies = {}
 	for _, player in pairs(Players:GetPlayers()) do
 		if player ~= LocalPlayer and isPlayerAlive(player) and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
 			table.insert(sortedEnemies, player)
 		end
 	end
-	table.sort(sortedEnemies, function(a,b)
-		return (a.Character.HumanoidRootPart.Position - myPos).Magnitude <
-			   (b.Character.HumanoidRootPart.Position - myPos).Magnitude
+	table.sort(sortedEnemies, function(a, b)
+		return (a.Character.HumanoidRootPart.Position - myPos).Magnitude < (b.Character.HumanoidRootPart.Position - myPos).Magnitude
 	end)
 	local newClosest = sortedEnemies[1]
+
+	if not following and not cameraTracking then
+		if fixedTarget and isPlayerAlive(fixedTarget) then
+			closestPlayer = fixedTarget
+		else
+			fixedTarget = newClosest
+			closestPlayer = newClosest
+		end
+	end
 
 	for player, highlight in pairs(highlights) do
 		if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
@@ -142,24 +136,19 @@ local function updateHighlights()
 		end
 	end
 
-	if not following and newClosest and highlights[newClosest] then
+	if not following and not cameraTracking and newClosest and highlights[newClosest] then
 		highlights[newClosest].FillColor = Color3.fromRGB(255, 0, 0)
 		highlights[newClosest].OutlineColor = Color3.fromRGB(255, 0, 0)
 	end
-	closestPlayer = newClosest
 end
 
 local function setupHighlightForPlayer(player)
 	if player ~= LocalPlayer then
 		player.CharacterAdded:Connect(function()
 			wait(0.1)
-			if scriptEnabled then
-				createHighlight(player)
-			end
+			if scriptEnabled then createHighlight(player) end
 		end)
-		if player.Character and scriptEnabled then
-			createHighlight(player)
-		end
+		if player.Character and scriptEnabled then createHighlight(player) end
 	end
 end
 
@@ -167,22 +156,16 @@ for _, player in pairs(Players:GetPlayers()) do
 	setupHighlightForPlayer(player)
 end
 
-Players.PlayerAdded:Connect(function(player)
-	setupHighlightForPlayer(player)
-end)
+Players.PlayerAdded:Connect(setupHighlightForPlayer)
 
 local renderStepConn
 renderStepConn = RunService.RenderStepped:Connect(function()
-	if scriptEnabled then
-		updateHighlights()
-	else
-		renderStepConn:Disconnect()
-	end
+	if scriptEnabled then updateHighlights()
+	else renderStepConn:Disconnect() end
 end)
 
 spawn(function()
-	while true do
-		if not scriptEnabled then break end
+	while scriptEnabled do
 		for _, player in pairs(Players:GetPlayers()) do
 			if player ~= LocalPlayer then
 				if not highlights[player] or not highlights[player].Parent then
@@ -213,26 +196,17 @@ local function followTarget(target)
 	end)
 
 	hrp.CFrame = CFrame.new(
-		targetHRP.Position - targetHRP.CFrame.LookVector * 2,
+		targetHRP.Position - targetHRP.CFrame.LookVector * 4 + Vector3.new(0, 0.5, 0),
 		targetHRP.Position
 	)
 
 	following = true
 
-	originalCameraSubject = Camera.CameraSubject
-	originalCameraType = Camera.CameraType
-
 	followConn = RunService.RenderStepped:Connect(function()
-		if following and target.Character and target.Character:FindFirstChild("HumanoidRootPart") and target.Character:FindFirstChild("Head") and isPlayerAlive(target) then
+		if following and target.Character and target.Character:FindFirstChild("HumanoidRootPart") and isPlayerAlive(target) then
 			local tHRP = target.Character.HumanoidRootPart
-			local tHead = target.Character.Head
-			local behindPos = tHRP.Position - tHRP.CFrame.LookVector * 2
-			
+			local behindPos = tHRP.Position - tHRP.CFrame.LookVector * 4 + Vector3.new(0, 0.5, 0)
 			hrp.CFrame = CFrame.new(behindPos, tHRP.Position)
-			
-			local camPos = behindPos + Vector3.new(0, 1.5, 0)
-			Camera.CameraType = Enum.CameraType.Scriptable
-			Camera.CFrame = CFrame.lookAt(camPos, tHead.Position)
 		else
 			stopFollowing()
 		end
@@ -243,77 +217,69 @@ local function followTarget(target)
 		humanoid.Died:Connect(function()
 			stopFollowing()
 			updateHighlightColor(target)
+			if fixedTarget == target then fixedTarget = nil end
 		end)
 	end
 end
 
 local function activateScript()
 	if not scriptEnabled then return end
-	if following then
-		stopFollowing()
-		return
-	end
-	if not closestPlayer then return end
-	if not closestPlayer.Character then return end
-	if not isPlayerAlive(closestPlayer) then return end
+	if following then stopFollowing() return end
+	if not closestPlayer or not closestPlayer.Character or not isPlayerAlive(closestPlayer) then return end
 	followTarget(closestPlayer)
 end
 
 local function disableScript()
 	scriptEnabled = false
-	
 	stopFollowing()
-
-	if followConn then
-		followConn:Disconnect()
-		followConn = nil
-	end
-	if steppedConn then
-		steppedConn:Disconnect()
-		steppedConn = nil
-	end
-
-	for player, highlight in pairs(highlights) do
-		if highlight and highlight.Parent then
-			highlight:Destroy()
-		end
+	if cameraConn then cameraConn:Disconnect() cameraConn = nil end
+	cameraTracking = false
+	for _, highlight in pairs(highlights) do
+		if highlight and highlight.Parent then highlight:Destroy() end
 	end
 	highlights = {}
-
-	if screenGui and screenGui.Parent then
-		screenGui:Destroy()
-	end
-	
-	if originalCameraSubject then
-		Camera.CameraSubject = originalCameraSubject
-		Camera.CameraType = originalCameraType
-	end
-	
+	if screenGui and screenGui.Parent then screenGui:Destroy() end
 	closestPlayer = nil
-	following = false
-	noclip = false
+	fixedTarget = nil
+end
+
+local function toggleCameraTracking()
+	if cameraTracking then
+		cameraTracking = false
+		fixedTarget = nil
+		if cameraConn then cameraConn:Disconnect() cameraConn = nil end
+	else
+		if closestPlayer and closestPlayer.Character and isPlayerAlive(closestPlayer) then
+			cameraTracking = true
+			fixedTarget = closestPlayer
+			cameraConn = RunService.RenderStepped:Connect(function()
+				local head = fixedTarget.Character:FindFirstChild("Head")
+				if head and Camera then
+					Camera.CFrame = CFrame.new(Camera.CFrame.Position, head.Position)
+				end
+			end)
+		end
+	end
 end
 
 UserInputService.InputBegan:Connect(function(input, processed)
-	if processed then return end
-	if not scriptEnabled then return end
-
+	if processed or not scriptEnabled then return end
 	if input.KeyCode == Enum.KeyCode.Z then
 		activateScript()
 	elseif input.KeyCode == Enum.KeyCode.X then
 		if helpText.Visible then
-
 			local tweenOut = TweenService:Create(helpText, TweenInfo.new(0.4, Enum.EasingStyle.Quad), {TextTransparency = 1, BackgroundTransparency = 1})
 			tweenOut:Play()
 			tweenOut.Completed:Wait()
 			helpText.Visible = false
 		else
 			helpText.Visible = true
-
 			local tweenIn = TweenService:Create(helpText, TweenInfo.new(0.4, Enum.EasingStyle.Quad), {TextTransparency = 0, BackgroundTransparency = 0.3})
 			tweenIn:Play()
 		end
 	elseif input.KeyCode == Enum.KeyCode.K then
 		disableScript()
+	elseif input.KeyCode == Enum.KeyCode.E then
+		toggleCameraTracking()
 	end
 end)
