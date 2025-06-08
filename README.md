@@ -1,1 +1,1 @@
-# bannlands-python-bot
+# .lua
