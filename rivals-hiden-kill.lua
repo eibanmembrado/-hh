@@ -11,7 +11,7 @@ local oldGui = PlayerGui:FindFirstChild("SeguirGui")
 if oldGui then oldGui:Destroy() end
 
 local screenGui = Instance.new("ScreenGui", PlayerGui)
-screenGui.Name = "SeguirGui"
+screenGui.Name = "f2f2f2xr$jd"
 screenGui.ResetOnSpawn = false
 
 local helpText = Instance.new("TextLabel")
